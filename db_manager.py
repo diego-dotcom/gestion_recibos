@@ -33,6 +33,11 @@ class DBManager:
         """Devuelve todos los clientes."""
         self.cursor.execute("SELECT * FROM clientes")
         return self.cursor.fetchall()
+    
+    def obtener_cliente_por_id(self, cliente_id):
+        """Obtiene la dirección y el CUIT de un cliente por su ID."""
+        self.cursor.execute("SELECT cuit, direccion FROM clientes WHERE id = ?", (cliente_id,))
+        return self.cursor.fetchone()  # Retorna (cuit, direccion) o None si no existe
 
     def actualizar_cliente(self, cliente_id, nombre, cuit, direccion):
         """Actualiza un cliente."""

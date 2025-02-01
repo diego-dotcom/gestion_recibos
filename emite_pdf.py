@@ -20,7 +20,7 @@ def emitir_pdf(fecha, numero, cliente, direccion, cuit, conceptos):
 
     # Configuración del PDF y líneas
     w, h = A4
-    c = canvas.Canvas(cliente + ".pdf", pagesize=A4)
+    c = canvas.Canvas(numero + "_" + cliente + ".pdf", pagesize=A4)
     
     xlist = [35, 560]
     ylist = [h - 15, h - 95, h - 175, h - 780, h - 817, h - 827]
@@ -79,4 +79,3 @@ conceptos = [
     ("Concepto 02", 150)
 ]
 
-emitir_pdf("01/01/2020", "00001", "Juan Perez", "Calle Falsa 123", "20-00000000-1", conceptos)

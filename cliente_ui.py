@@ -2,12 +2,14 @@ import customtkinter as ctk
 import tkinter as tk
 from tkinter import ttk, messagebox
 from db_manager import DBManager
+from datetime import datetime
+from emite_pdf import emitir_pdf  
 
 class ClienteApp(ctk.CTk):
     def __init__(self):
         super().__init__()
         self.title("Gestión de Clientes")
-        self.geometry("650x450")
+        self.geometry("550x650")
 
         self.db = DBManager()
 
@@ -200,6 +202,10 @@ class ReciboFrame(ctk.CTkFrame):
         self.label_total = ctk.CTkLabel(self, text="Total: $0.00", font=("Arial", 14, "bold"))
         self.label_total.grid(row=5, column=0, columnspan=2, pady=10)
 
+        # Botón para emitir el recibo
+        self.btn_emitir = ctk.CTkButton(self, text="Emitir", command=self.emitir_recibo)
+        self.btn_emitir.grid(row=6, column=0, columnspan=2, pady=10)
+
     def obtener_clientes(self):
         """Obtiene la lista de clientes de la base de datos."""
         clientes = self.db.obtener_clientes()
@@ -221,7 +227,7 @@ class ReciboFrame(ctk.CTkFrame):
             return
 
         self.tree.insert("", "end", values=(concepto, f"${valor:.2f}"))
-        self.conceptos.append(valor)
+        self.conceptos.append((concepto, valor))
         self.actualizar_total()
 
         # Limpiar entradas
@@ -230,5 +236,46 @@ class ReciboFrame(ctk.CTkFrame):
 
     def actualizar_total(self):
         """Calcula y actualiza el total de los valores ingresados."""
-        total = sum(self.conceptos)
+        total = sum(valor for _, valor in self.conceptos)
         self.label_total.configure(text=f"Total: ${total:.2f}")
+
+    def limpiar_formulario(self):
+        """Limpia la tabla de conceptos y reinicia el total."""
+        self.tree.delete(*self.tree.get_children())  # Borra todos los elementos de la tabla
+        self.conceptos.clear()  # Borra la lista de conceptos
+        self.label_total.configure(text="Total: $0.00")  # Reinicia el total
+
+
+    def emitir_recibo(self):
+        """Prepara los datos y emite el recibo en PDF."""
+        cliente_seleccionado = self.combo_clientes.get()
+
+        if not cliente_seleccionado:
+            messagebox.showwarning("Error", "Debe seleccionar un cliente.")
+            return
+        
+        if not self.conceptos:
+            messagebox.showwarning("Error", "Debe agregar al menos un concepto.")
+            return
+
+        cliente_id, cliente_nombre = cliente_seleccionado.split(" - ", 1)
+        cliente_info = self.db.obtener_cliente_por_id(cliente_id)
+
+        if not cliente_info:
+            messagebox.showwarning("Error", "Cliente no encontrado en la base de datos.")
+            return
+
+        direccion, cuit = cliente_info[1], cliente_info[0]  # Dirección y CUIT en la DB
+
+        fecha = datetime.now().strftime("%d/%m/%Y")
+        numero = "00001"  # Aquí podrías agregar una lógica para numeración automática
+
+        # Llamar a la función que genera el PDF
+        emitir_pdf(fecha, numero, cliente_nombre, direccion, cuit, self.conceptos)
+
+        messagebox.showinfo("Éxito", "Recibo emitido correctamente.")
+
+        # Limpiar el formulario después de emitir el recibo
+        self.limpiar_formulario()
+
+
