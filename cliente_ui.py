@@ -11,6 +11,27 @@ class ClienteApp(ctk.CTk):
 
         self.db = DBManager()
 
+        # --- Crear Tabview para manejar las solapas ---
+        self.tabview = ctk.CTkTabview(self)
+        self.tabview.pack(padx=20, pady=20, fill="both", expand=True)
+
+        # --- Solapa de Gestión de Clientes ---
+        self.tab_clientes = self.tabview.add("Clientes")
+        self.cliente_frame = ClienteFrame(self.tab_clientes, self.db)
+        self.cliente_frame.pack(fill="both", expand=True)
+
+        # --- Solapa de Emisión de Recibos ---
+        self.tab_recibos = self.tabview.add("Recibos")
+        self.recibo_frame = ReciboFrame(self.tab_recibos, self.db)
+        self.recibo_frame.pack(fill="both", expand=True)
+
+class ClienteFrame(ctk.CTkFrame):
+    def __init__(self, parent, db):
+        super().__init__(parent)
+        self.db = db
+
+        # Formulario de Cliente
+
         # --- Formulario ---
         self.frame_formulario = ctk.CTkFrame(self)
         self.frame_formulario.pack(pady=10, padx=10, fill="x")
@@ -142,3 +163,72 @@ class ClienteApp(ctk.CTk):
         self.btn_agregar.configure(state="normal")  # ✅ Se vuelve a habilitar 'Agregar Cliente'
 
         self.selected_id = None
+
+class ReciboFrame(ctk.CTkFrame):
+    def __init__(self, parent, db):
+        super().__init__(parent)
+        self.db = db
+        self.conceptos = []
+
+        # Selección de Cliente
+        ctk.CTkLabel(self, text="Seleccionar Cliente:").grid(row=0, column=0, padx=5, pady=5)
+        self.combo_clientes = ctk.CTkComboBox(self, values=self.obtener_clientes(), width=250)
+        self.combo_clientes.grid(row=0, column=1, padx=5, pady=5)
+
+        # Tabla de conceptos
+        self.tree = ttk.Treeview(self, columns=("Concepto", "Valor"), show="headings")
+        self.tree.heading("Concepto", text="Concepto")
+        self.tree.heading("Valor", text="Valor")
+        self.tree.column("Concepto", width=200)
+        self.tree.column("Valor", width=100, anchor="center")
+        self.tree.grid(row=1, column=0, columnspan=2, padx=5, pady=5)
+
+        # Formulario para agregar conceptos
+        ctk.CTkLabel(self, text="Concepto:").grid(row=2, column=0, padx=5, pady=5)
+        self.entry_concepto = ctk.CTkEntry(self, width=200)
+        self.entry_concepto.grid(row=2, column=1, padx=5, pady=5)
+
+        ctk.CTkLabel(self, text="Valor:").grid(row=3, column=0, padx=5, pady=5)
+        self.entry_valor = ctk.CTkEntry(self, width=200)
+        self.entry_valor.grid(row=3, column=1, padx=5, pady=5)
+
+        # Botón para agregar concepto
+        self.btn_agregar_concepto = ctk.CTkButton(self, text="Agregar Concepto", command=self.agregar_concepto)
+        self.btn_agregar_concepto.grid(row=4, column=0, columnspan=2, pady=5)
+
+        # Mostrar Total
+        self.label_total = ctk.CTkLabel(self, text="Total: $0.00", font=("Arial", 14, "bold"))
+        self.label_total.grid(row=5, column=0, columnspan=2, pady=10)
+
+    def obtener_clientes(self):
+        """Obtiene la lista de clientes de la base de datos."""
+        clientes = self.db.obtener_clientes()
+        return [f"{c[0]} - {c[1]}" for c in clientes]
+
+    def agregar_concepto(self):
+        """Agrega un concepto con su valor a la tabla y actualiza el total."""
+        concepto = self.entry_concepto.get()
+        valor = self.entry_valor.get()
+
+        if not concepto or not valor:
+            messagebox.showwarning("Error", "Debe ingresar un concepto y su valor.")
+            return
+
+        try:
+            valor = float(valor)
+        except ValueError:
+            messagebox.showwarning("Error", "El valor debe ser un número válido.")
+            return
+
+        self.tree.insert("", "end", values=(concepto, f"${valor:.2f}"))
+        self.conceptos.append(valor)
+        self.actualizar_total()
+
+        # Limpiar entradas
+        self.entry_concepto.delete(0, "end")
+        self.entry_valor.delete(0, "end")
+
+    def actualizar_total(self):
+        """Calcula y actualiza el total de los valores ingresados."""
+        total = sum(self.conceptos)
+        self.label_total.configure(text=f"Total: ${total:.2f}")
