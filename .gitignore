@@ -1,2 +1,4 @@
 __pycache__/
 clientes.db
+*.pdf
+.env
