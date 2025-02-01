@@ -1,0 +1,144 @@
+import customtkinter as ctk
+import tkinter as tk
+from tkinter import ttk, messagebox
+from db_manager import DBManager
+
+class ClienteApp(ctk.CTk):
+    def __init__(self):
+        super().__init__()
+        self.title("Gestión de Clientes")
+        self.geometry("650x450")
+
+        self.db = DBManager()
+
+        # --- Formulario ---
+        self.frame_formulario = ctk.CTkFrame(self)
+        self.frame_formulario.pack(pady=10, padx=10, fill="x")
+
+        ctk.CTkLabel(self.frame_formulario, text="Nombre:").grid(row=0, column=0, padx=5, pady=5)
+        self.entry_nombre = ctk.CTkEntry(self.frame_formulario, width=200)
+        self.entry_nombre.grid(row=0, column=1, padx=5, pady=5)
+
+        ctk.CTkLabel(self.frame_formulario, text="CUIT:").grid(row=1, column=0, padx=5, pady=5)
+        self.entry_cuit = ctk.CTkEntry(self.frame_formulario, width=200)
+        self.entry_cuit.grid(row=1, column=1, padx=5, pady=5)
+
+        ctk.CTkLabel(self.frame_formulario, text="Dirección:").grid(row=2, column=0, padx=5, pady=5)
+        self.entry_direccion = ctk.CTkEntry(self.frame_formulario, width=200)
+        self.entry_direccion.grid(row=2, column=1, padx=5, pady=5)
+
+        # --- Botones ---
+        self.btn_agregar = ctk.CTkButton(self.frame_formulario, text="Agregar Cliente", command=self.agregar_cliente)
+        self.btn_agregar.grid(row=3, column=0, columnspan=2, pady=5)
+
+        self.btn_editar = ctk.CTkButton(self.frame_formulario, text="Actualizar Cliente", command=self.actualizar_cliente, state="disabled")
+        self.btn_editar.grid(row=4, column=0, columnspan=2, pady=5)
+
+        self.btn_eliminar = ctk.CTkButton(self.frame_formulario, text="Eliminar Cliente", command=self.eliminar_cliente, state="disabled")
+        self.btn_eliminar.grid(row=5, column=0, columnspan=2, pady=5)
+
+        # --- Treeview para mostrar clientes ---
+        self.tree = ttk.Treeview(self, columns=("ID", "Nombre", "CUIT", "Dirección"), show="headings")
+        self.tree.heading("ID", text="ID")
+        self.tree.heading("Nombre", text="Nombre")
+        self.tree.heading("CUIT", text="CUIT")
+        self.tree.heading("Dirección", text="Dirección")
+
+        self.tree.column("ID", width=30, anchor="center")
+        self.tree.column("Nombre", width=150)
+        self.tree.column("CUIT", width=120, anchor="center")
+        self.tree.column("Dirección", width=200)
+
+        self.tree.pack(pady=10, fill="both", expand=True)
+        self.tree.bind("<Double-1>", self.seleccionar_cliente)
+
+        self.mostrar_clientes()
+
+    def agregar_cliente(self):
+        """Agrega un nuevo cliente a la base de datos."""
+        nombre = self.entry_nombre.get()
+        cuit = self.entry_cuit.get()
+        direccion = self.entry_direccion.get()
+
+        if not nombre or not cuit or not direccion:
+            messagebox.showwarning("Error", "Todos los campos son obligatorios")
+            return
+
+        if self.db.agregar_cliente(nombre, cuit, direccion):
+            messagebox.showinfo("Éxito", "Cliente agregado correctamente")
+            self.mostrar_clientes()
+            self.limpiar_campos()
+        else:
+            messagebox.showerror("Error", "El CUIT ya está registrado")
+
+    def mostrar_clientes(self):
+        """Carga los clientes en el Treeview."""
+        for item in self.tree.get_children():
+            self.tree.delete(item)
+
+        clientes = self.db.obtener_clientes()
+        for cliente in clientes:
+            self.tree.insert("", "end", values=cliente)
+
+    def seleccionar_cliente(self, event):
+        """Carga los datos del cliente seleccionado en los campos y deshabilita 'Agregar Cliente'."""
+        selected_item = self.tree.focus()
+        if not selected_item:
+            return
+
+        values = self.tree.item(selected_item, "values")
+        if values:
+            self.entry_nombre.delete(0, "end")
+            self.entry_cuit.delete(0, "end")
+            self.entry_direccion.delete(0, "end")
+
+            self.entry_nombre.insert(0, values[1])
+            self.entry_cuit.insert(0, values[2])
+            self.entry_direccion.insert(0, values[3])
+
+            self.btn_editar.configure(state="normal")
+            self.btn_eliminar.configure(state="normal")
+            self.btn_agregar.configure(state="disabled")  # 🚨 Deshabilita 'Agregar Cliente'
+
+            self.selected_id = values[0]
+
+    def actualizar_cliente(self):
+        """Actualiza los datos de un cliente existente."""
+        if not hasattr(self, 'selected_id'):
+            return
+
+        nombre = self.entry_nombre.get()
+        cuit = self.entry_cuit.get()
+        direccion = self.entry_direccion.get()
+
+        if not nombre or not cuit or not direccion:
+            messagebox.showwarning("Error", "Todos los campos son obligatorios")
+            return
+
+        self.db.actualizar_cliente(self.selected_id, nombre, cuit, direccion)
+        messagebox.showinfo("Éxito", "Cliente actualizado correctamente")
+        self.mostrar_clientes()
+        self.limpiar_campos()
+
+    def eliminar_cliente(self):
+        """Elimina un cliente de la base de datos."""
+        if not hasattr(self, 'selected_id'):
+            return
+
+        if messagebox.askyesno("Confirmar", "¿Seguro que deseas eliminar este cliente?"):
+            self.db.eliminar_cliente(self.selected_id)
+            messagebox.showinfo("Éxito", "Cliente eliminado correctamente")
+            self.mostrar_clientes()
+            self.limpiar_campos()
+
+    def limpiar_campos(self):
+        """Limpia los campos y re-habilita 'Agregar Cliente'."""
+        self.entry_nombre.delete(0, "end")
+        self.entry_cuit.delete(0, "end")
+        self.entry_direccion.delete(0, "end")
+
+        self.btn_editar.configure(state="disabled")
+        self.btn_eliminar.configure(state="disabled")
+        self.btn_agregar.configure(state="normal")  # ✅ Se vuelve a habilitar 'Agregar Cliente'
+
+        self.selected_id = None
